@@ -1743,6 +1743,9 @@
         .hrms-badge { padding:3px 10px; border-radius:99px; font-size:0.75rem; font-weight:600; background:#edf2f7; color:#718096; }
         .hrms-badge.paid { background:#c6f6d5; color:#276749; }
         .hrms-badge.pending { background:#feebc8; color:#c05621; }
+        .hrms-badge.new { background:#bee3f8; color:#2c5282; }
+        .hrms-badge.contacted { background:#feebc8; color:#c05621; }
+        .hrms-badge.closed { background:#c6f6d5; color:#276749; }
         .hrms-role-badge { padding:3px 10px; border-radius:99px; font-size:0.78rem; font-weight:600; }
         .hrms-perm-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
         .hrms-perm-tag { background:#ebfaf9; color:#2c7a7b; font-size:0.72rem; padding:2px 8px; border-radius:99px; }
@@ -3959,16 +3962,16 @@
         // in sync as an optimistic cache: every create/update/delete action
         // calls the API first and only updates this cache (then re-renders)
         // once the server confirms success.
-        const _cache = { employees: [], users: [], invoices: [], siteContent: {} };
+        const _cache = { employees: [], users: [], invoices: [], siteContent: {}, contactRequests: null };
 
         const HRMS = {
             currentUser: null,
             activeModule: 'dashboard',
 
             roles: {
-                admin:   { label:'Admin',   color:'#e53e3e', permissions:['dashboard','employees','users','attendance','payroll','invoice','website','settings'] },
-                manager: { label:'Manager', color:'#dd6b20', permissions:['dashboard','employees','attendance','invoice'] },
-                hr:      { label:'HR',      color:'#6b46c1', permissions:['dashboard','employees','attendance'] },
+                admin:   { label:'Admin',   color:'#e53e3e', permissions:['dashboard','employees','users','attendance','payroll','invoice','requests','website','settings'] },
+                manager: { label:'Manager', color:'#dd6b20', permissions:['dashboard','employees','attendance','invoice','requests'] },
+                hr:      { label:'HR',      color:'#6b46c1', permissions:['dashboard','employees','attendance','requests'] },
                 employee:{ label:'Employee',color:'#2b6cb0', permissions:['dashboard','attendance'] }
             }
         };
@@ -4091,6 +4094,7 @@
                 { id:'attendance', icon:'📅', label:'Attendance' },
                 { id:'payroll',    icon:'💰', label:'Payroll'    },
                 { id:'invoice',    icon:'🧾', label:'Invoices'   },
+                { id:'requests',   icon:'📨', label:'Requests'   },
                 { id:'website',    icon:'🌐', label:'Website'     },
                 { id:'settings',   icon:'⚙️', label:'Settings'   }
             ].filter(n => perms.includes(n.id));
@@ -4152,7 +4156,7 @@
         function hrmsRenderModule(mod) {
             const el = document.getElementById('hrmsContent');
             if (!el) return;
-            const renders = { dashboard:renderDashboard, employees:renderEmployees, users:renderUsers, attendance:renderAttendance, payroll:renderPayroll, invoice:renderInvoice, website:renderWebsite, settings:renderSettings };
+            const renders = { dashboard:renderDashboard, employees:renderEmployees, users:renderUsers, attendance:renderAttendance, payroll:renderPayroll, invoice:renderInvoice, requests:renderRequests, website:renderWebsite, settings:renderSettings };
             if (renders[mod]) el.innerHTML = renders[mod]();
             else el.innerHTML = '<p style="color:#bdc3c7;">Module coming soon.</p>';
         }
@@ -4845,6 +4849,64 @@
         }
 
         window.showAddInvoice=showAddInvoice; window.addInvItem=addInvItem; window.saveInvoice=saveInvoice; window.toggleInvStatus=toggleInvStatus; window.printInvoice=printInvoice;
+
+        // ── REQUESTS (contact form submissions) ─────────────────────────────
+        function renderRequests() {
+            if (_cache.contactRequests === null) {
+                loadContactRequests();
+                return '<div class="hrms-card" style="text-align:center;color:#9aa5b4;padding:2.5rem;">Loading requests…</div>';
+            }
+            var list = _cache.contactRequests;
+            if (list.length === 0) {
+                return '<div class="hrms-card" style="text-align:center;color:#9aa5b4;padding:2.5rem;">'
+                  + '📨 No contact requests yet.<br><span style="font-size:0.85rem;">Submissions from the website\'s Contact form and Contact Us page will show up here.</span></div>';
+            }
+            return '<div class="hrms-toolbar"><button class="hrms-btn-sm" onclick="loadContactRequests(true)">🔄 Refresh</button></div>'
+              + '<div class="hrms-table-wrap"><table class="hrms-table">'
+              + '<thead><tr><th>Name</th><th>Mobile</th><th>Email</th><th>Service</th><th>Message</th><th>Received</th><th>Status</th><th>Actions</th></tr></thead>'
+              + '<tbody>' + list.map(function(r) {
+                  var statusClass = r.status === 'New' ? 'new' : (r.status === 'Contacted' ? 'contacted' : 'closed');
+                  var received = r.created_at ? new Date(r.created_at).toLocaleString('en-IN', {dateStyle:'medium', timeStyle:'short'}) : '';
+                  return '<tr>'
+                    + '<td><b>' + escapeHTML(r.name) + '</b>' + (r.company ? '<br><small style="color:#9aa5b4;">' + escapeHTML(r.company) + '</small>' : '') + '</td>'
+                    + '<td><a href="tel:' + escapeHTML(r.mobile) + '" style="color:#66D12F;">' + escapeHTML(r.mobile) + '</a></td>'
+                    + '<td>' + (r.email ? '<a href="mailto:' + encodeURIComponent(r.email) + '" style="color:#66D12F;">' + escapeHTML(r.email) + '</a>' : '<span style="color:#9aa5b4;">—</span>') + '</td>'
+                    + '<td>' + (r.service ? escapeHTML(r.service) : '<span style="color:#9aa5b4;">—</span>') + '</td>'
+                    + '<td style="max-width:220px;">' + (r.message ? escapeHTML(r.message) : '<span style="color:#9aa5b4;">—</span>') + '</td>'
+                    + '<td style="white-space:nowrap;">' + received + '</td>'
+                    + '<td><span class="hrms-badge ' + statusClass + '">' + escapeHTML(r.status) + '</span></td>'
+                    + '<td style="white-space:nowrap;">'
+                    + '<select class="hrms-select-inline" onchange="updateRequestStatus(' + r.id + ', this.value)">'
+                    + ['New','Contacted','Closed'].map(function(s){ return '<option value="' + s + '"' + (s===r.status?' selected':'') + '>' + s + '</option>'; }).join('')
+                    + '</select></td>'
+                    + '</tr>';
+              }).join('') + '</tbody></table></div>';
+        }
+
+        async function loadContactRequests(forceRerender) {
+            try {
+                var data = await apiFetch('/contact');
+                _cache.contactRequests = data;
+            } catch (e) {
+                _cache.contactRequests = [];
+            }
+            if (forceRerender || HRMS.activeModule === 'requests') {
+                hrmsRenderModule('requests');
+            }
+        }
+
+        async function updateRequestStatus(id, status) {
+            try {
+                await apiFetch('/contact/' + id + '/status', { method: 'PUT', body: { status: status } });
+                var r = (_cache.contactRequests || []).find(function(x){ return x.id === id; });
+                if (r) r.status = status;
+            } catch (e) {
+                alert(e.message);
+            }
+            hrmsRenderModule('requests');
+        }
+        window.loadContactRequests = loadContactRequests;
+        window.updateRequestStatus = updateRequestStatus;
 
         // ── SETTINGS ──────────────────────────────────────────────────────
         function renderWebsite() {

@@ -3672,12 +3672,15 @@
         // Only matters if the page happens to load directly into the hrms view;
         // showPage() falls back to the login page otherwise.
         (async function restoreSession() {
+            const token = localStorage.getItem('lm_token');
+            if (!token) return;
             try {
                 const data = await apiFetch('/auth/me');
                 HRMS.currentUser = data.user;
                 await loadHRMSData();
                 resetSessionTimer();
             } catch (e) {
+                localStorage.removeItem('lm_token');
                 HRMS.currentUser = null;
             }
         })();
@@ -3925,14 +3928,23 @@
         // POST /api/auth/login.
         const API = '/api';
         async function apiFetch(path, opts = {}) {
+            const token = localStorage.getItem('lm_token');
             const res = await fetch(API + path, {
                 credentials: 'include',
-                headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+                    ...(opts.headers || {})
+                },
                 ...opts,
                 body: opts.body ? JSON.stringify(opts.body) : undefined
             });
             let data = null;
             try { data = await res.json(); } catch (e) { /* no body */ }
+            if (res.status === 401) {
+                localStorage.removeItem('lm_token');
+                HRMS.currentUser = null;
+            }
             if (!res.ok) throw new Error((data && data.error) || ('Request failed (' + res.status + ')'));
             return data;
         }
@@ -3970,9 +3982,9 @@
 
             roles: {
                 admin:   { label:'Admin',   color:'#e53e3e', permissions:['dashboard','employees','users','attendance','payroll','invoice','requests','website','settings'] },
-                manager: { label:'Manager', color:'#dd6b20', permissions:['dashboard','employees','attendance','invoice','requests'] },
-                hr:      { label:'HR',      color:'#6b46c1', permissions:['dashboard','employees','attendance','requests'] },
-                employee:{ label:'Employee',color:'#2b6cb0', permissions:['dashboard','attendance'] }
+                manager: { label:'Manager', color:'#dd6b20', permissions:['dashboard','employees','attendance','payroll','invoice','requests'] },
+                hr:      { label:'HR',      color:'#6b46c1', permissions:['dashboard','employees','attendance','payroll','requests'] },
+                employee:{ label:'Employee',color:'#2b6cb0', permissions:['dashboard','attendance','settings'] }
             }
         };
         // (Plain data setters — these just update the local cache; the actual
@@ -4024,41 +4036,40 @@
         window.togglePass = togglePass;
 
         // ── Auth ──────────────────────────────────────────────────────────
-        async function adminLogin() {
-            const uid = document.querySelector('#adminFields input[type="text"]').value.trim();
-            const pwd = document.getElementById('adminPass').value.trim();
+        // ── Shared login handler (works for ALL roles: admin, manager, hr, employee) ──
+        async function _doLogin(uid, pwd, cardId, fieldsId) {
             if (!uid || !pwd) { alert('Please enter User ID and Password.'); return; }
             let result;
             try {
                 result = await apiFetch('/auth/login', { method: 'POST', body: { id: uid, password: pwd } });
             } catch (e) { alert(e.message); return; }
+            // Store JWT token for all subsequent API calls
+            if (result.token) localStorage.setItem('lm_token', result.token);
             HRMS.currentUser = result.user;
             resetSessionTimer();
             HRMS.activeModule = 'dashboard';
-            closeLoginCard('adminCard','adminFields');
+            if (cardId && fieldsId) closeLoginCard(cardId, fieldsId);
+            showLoadingThen(async () => { await loadHRMSData(); showPage('hrms'); renderHRMS(); });
+        }
+
+        async function adminLogin() {
+            const uid = document.querySelector('#adminFields input[type="text"]').value.trim();
+            const pwd = document.getElementById('adminPass').value.trim();
             document.querySelector('#adminFields input[type="text"]').value = '';
             document.getElementById('adminPass').value = '';
-            showLoadingThen(async () => { await loadHRMSData(); showPage('hrms'); renderHRMS(); });
+            await _doLogin(uid, pwd, 'adminCard', 'adminFields');
         }
 
         async function userLogin() {
             const uid = document.querySelector('#userFields input[type="text"]').value.trim();
             const pwd = document.getElementById('userPass').value.trim();
-            if (!uid || !pwd) { alert('Please enter User ID and Password.'); return; }
-            let result;
-            try {
-                result = await apiFetch('/auth/login', { method: 'POST', body: { id: uid, password: pwd } });
-            } catch (e) { alert(e.message); return; }
-            HRMS.currentUser = result.user;
-            resetSessionTimer();
-            HRMS.activeModule = 'dashboard';
-            closeLoginCard('userCard','userFields');
             document.querySelector('#userFields input[type="text"]').value = '';
             document.getElementById('userPass').value = '';
-            showLoadingThen(async () => { await loadHRMSData(); showPage('hrms'); renderHRMS(); });
+            await _doLogin(uid, pwd, 'userCard', 'userFields');
         }
 
         function hrmsLogout() {
+            localStorage.removeItem('lm_token');
             HRMS.currentUser = null;
             apiFetch('/auth/logout', { method: 'POST' }).catch(() => {});
             showLoadingThen(() => showPage('login'));
@@ -4081,9 +4092,8 @@
             if (!app) return;
             const u = HRMS.currentUser;
             if (!u) { showPage('login'); return; }
-            // Re-validate user still exists and is active
-            const validUser = HRMS.users.find(x => x.id === u.id && x.active);
-            if (!validUser) { HRMS.currentUser = null; showPage('login'); return; }
+            // Validate role exists (don't block non-admin users who can't see the users list)
+            if (!HRMS.roles[u.role]) { HRMS.currentUser = null; localStorage.removeItem('lm_token'); showPage('login'); return; }
             const role = HRMS.roles[u.role];
             const perms = role.permissions;
 
@@ -4171,40 +4181,107 @@
         }
 
         function renderDashboard() {
-            const totalEmp = HRMS.employees.length;
-            const activeEmp = HRMS.employees.filter(e=>e.status==='Active').length;
-            const totalInv = HRMS.invoices.reduce((s,i)=>s+invoiceSubtotal(i),0);
+            const u          = HRMS.currentUser || {};
+            const role       = HRMS.roles[u.role] || {};
+            const totalEmp   = HRMS.employees.length;
+            const activeEmp  = HRMS.employees.filter(e=>e.status==='Active').length;
+            const totalInv   = HRMS.invoices.reduce((s,i)=>s+invoiceSubtotal(i),0);
             const pendingInv = HRMS.invoices.filter(i=>i.status==='Pending').length;
+            const canSeeInvoices = can('invoice');
+            const canSeeUsers    = can('users');
+            const isEmployee     = u.role === 'employee';
+
+            // Employee sees only their own info
+            const myRecord = HRMS.employees.find(e => e.id === u.id);
+
             return `
+            <div class="hrms-card" style="margin-bottom:1.2rem;background:linear-gradient(135deg,#1A1A72,#12123F);color:#fff;border:none;">
+                <div style="display:flex;align-items:center;gap:1rem;">
+                    <div class="hrms-user-avatar" style="width:48px;height:48px;font-size:1.3rem;">${escapeHTML((u.name||'?').charAt(0))}</div>
+                    <div>
+                        <div style="font-size:1.1rem;font-weight:700;">Welcome, ${escapeHTML(u.name||'')}! 👋</div>
+                        <div style="font-size:0.82rem;opacity:0.7;margin-top:2px;">
+                            <span style="background:${role.color||'#66D12F'}33;color:${role.color||'#66D12F'};padding:2px 10px;border-radius:99px;">${role.label||u.role}</span>
+                            &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="hrms-dash-stats">
                 <div class="hds-card"><div class="hds-icon">👥</div><div class="hds-num">${totalEmp}</div><div class="hds-label">Total Employees</div></div>
                 <div class="hds-card"><div class="hds-icon">✅</div><div class="hds-num">${activeEmp}</div><div class="hds-label">Active</div></div>
+                ${canSeeInvoices ? `
                 <div class="hds-card"><div class="hds-icon">🧾</div><div class="hds-num">₹${(totalInv/1000).toFixed(0)}K</div><div class="hds-label">Total Invoiced</div></div>
                 <div class="hds-card"><div class="hds-icon">⏳</div><div class="hds-num">${pendingInv}</div><div class="hds-label">Pending Invoices</div></div>
+                ` : `
+                <div class="hds-card"><div class="hds-icon">🔑</div><div class="hds-num">${(role.permissions||[]).length}</div><div class="hds-label">My Modules</div></div>
+                <div class="hds-card"><div class="hds-icon">📅</div><div class="hds-num">${new Date().getDate()}</div><div class="hds-label">Today's Date</div></div>
+                `}
             </div>
             <div class="hrms-dash-grid">
+                ${!isEmployee ? `
                 <div class="hrms-card">
                     <h4>Recent Employees</h4>
-                    ${HRMS.employees.slice(0,3).map(e=>`<div class="hrms-list-row"><span class="hrms-avatar">${escapeHTML(e.name.charAt(0))}</span><div><b>${escapeHTML(e.name)}</b><br><small>${escapeHTML(e.designation)} · ${escapeHTML(e.dept)}</small></div><span class="hrms-badge">${e.status}</span></div>`).join('')}
-                </div>
+                    ${HRMS.employees.slice(0,4).map(e=>`
+                    <div class="hrms-list-row">
+                        <span class="hrms-avatar">${escapeHTML(e.name.charAt(0))}</span>
+                        <div><b>${escapeHTML(e.name)}</b><br><small>${escapeHTML(e.designation)} · ${escapeHTML(e.dept)}</small></div>
+                        <span class="hrms-badge ${e.status==='Active'?'paid':'pending'}">${e.status}</span>
+                    </div>`).join('')}
+                </div>` : myRecord ? `
+                <div class="hrms-card">
+                    <h4>My Profile</h4>
+                    <div class="hrms-list-row"><span style="color:#718096;width:100px;font-size:0.85rem;">Employee ID</span><b>${escapeHTML(myRecord.id)}</b></div>
+                    <div class="hrms-list-row"><span style="color:#718096;width:100px;font-size:0.85rem;">Department</span><b>${escapeHTML(myRecord.dept)}</b></div>
+                    <div class="hrms-list-row"><span style="color:#718096;width:100px;font-size:0.85rem;">Designation</span><b>${escapeHTML(myRecord.designation)}</b></div>
+                    <div class="hrms-list-row"><span style="color:#718096;width:100px;font-size:0.85rem;">Status</span><span class="hrms-badge ${myRecord.status==='Active'?'paid':'pending'}">${myRecord.status}</span></div>
+                    <div class="hrms-list-row"><span style="color:#718096;width:100px;font-size:0.85rem;">Joined</span><b>${escapeHTML(myRecord.joined||'—')}</b></div>
+                </div>` : `
+                <div class="hrms-card" style="text-align:center;color:#9aa5b4;padding:2rem;">
+                    📋 Your employee profile is not set up yet. Contact HR.
+                </div>`}
+                ${canSeeInvoices ? `
                 <div class="hrms-card">
                     <h4>Recent Invoices</h4>
-                    ${HRMS.invoices.slice(0,3).map(i=>`<div class="hrms-list-row"><span style="font-size:1.4rem;">🧾</span><div><b>${escapeHTML(i.id)}</b><br><small>${escapeHTML(i.client)}</small></div><span class="hrms-badge ${i.status==='Paid'?'paid':'pending'}">₹${invoiceSubtotal(i).toLocaleString()}</span></div>`).join('')}
-                </div>
+                    ${HRMS.invoices.slice(0,4).map(i=>`
+                    <div class="hrms-list-row">
+                        <span style="font-size:1.3rem;">🧾</span>
+                        <div><b>${escapeHTML(i.id)}</b><br><small>${escapeHTML(i.client)}</small></div>
+                        <span class="hrms-badge ${i.status==='Paid'?'paid':'pending'}">₹${invoiceSubtotal(i).toLocaleString()}</span>
+                    </div>`).join('')}
+                </div>` : `
+                <div class="hrms-card">
+                    <h4>🔑 My Access</h4>
+                    <p style="color:#718096;font-size:0.85rem;margin-bottom:0.75rem;">Modules available to you:</p>
+                    <div class="hrms-perm-tags">
+                        ${(role.permissions||[]).map(p=>`<span class="hrms-perm-tag" style="padding:4px 12px;">✅ ${p.charAt(0).toUpperCase()+p.slice(1)}</span>`).join('')}
+                    </div>
+                </div>`}
             </div>`;
         }
 
         // ── EMPLOYEES ─────────────────────────────────────────────────────
         function renderEmployees() {
-            const isAdmin = can('users');
+            const role = HRMS.currentUser ? HRMS.currentUser.role : '';
+            const canAdd    = ['admin','hr'].includes(role);
+            const canEdit   = ['admin','hr','manager'].includes(role);
+            const canDelete = ['admin'].includes(role);
+            const showSalary= ['admin','manager','hr'].includes(role);
+            const showActions = canEdit || canDelete;
             return `
             <div class="hrms-toolbar">
-                ${isAdmin?`<button class="hrms-btn-primary" onclick="showAddEmployee()">+ Add Employee</button>`:''}
+                ${canAdd ? `<button class="hrms-btn-primary" onclick="showAddEmployee()">+ Add Employee</button>` : ''}
+                <span style="font-size:0.82rem;color:#718096;margin-left:auto;">Total: <b>${HRMS.employees.length}</b> employees</span>
             </div>
             <div id="empFormWrap" style="display:none;" class="hrms-card" style="margin-bottom:1.5rem;"></div>
             <div class="hrms-table-wrap">
                 <table class="hrms-table" id="empTable">
-                    <thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Designation</th><th>Phone</th><th>Salary</th><th>Status</th>${isAdmin?'<th>Actions</th>':''}</tr></thead>
+                    <thead><tr>
+                        <th>ID</th><th>Name</th><th>Department</th><th>Designation</th><th>Phone</th>
+                        ${showSalary ? '<th>Salary</th>' : ''}
+                        <th>Status</th>
+                        ${showActions ? '<th>Actions</th>' : ''}
+                    </tr></thead>
                     <tbody>${HRMS.employees.map(e=>`
                         <tr>
                             <td>${escapeHTML(e.id)}</td>
@@ -4212,9 +4289,12 @@
                             <td>${escapeHTML(e.dept)}</td>
                             <td>${escapeHTML(e.designation)}</td>
                             <td>${escapeHTML(e.phone)}</td>
-                            <td>₹${e.salary.toLocaleString()}</td>
+                            ${showSalary ? `<td>₹${e.salary.toLocaleString()}</td>` : ''}
                             <td><span class="hrms-badge ${e.status==='Active'?'paid':'pending'}">${e.status}</span></td>
-                            ${isAdmin?`<td><button class="hrms-btn-sm" onclick="editEmployee('${e.id}')">✏️</button> <button class="hrms-btn-sm danger" onclick="deleteEmployee('${e.id}')">🗑️</button></td>`:''}
+                            ${showActions ? `<td>
+                                ${canEdit   ? `<button class="hrms-btn-sm" onclick="editEmployee('${e.id}')">✏️ Edit</button> ` : ''}
+                                ${canDelete ? `<button class="hrms-btn-sm danger" onclick="deleteEmployee('${e.id}')">🗑️</button>` : ''}
+                            </td>` : ''}
                         </tr>`).join('')}
                     </tbody>
                 </table>
@@ -4284,27 +4364,30 @@
 
         // ── USERS ─────────────────────────────────────────────────────────
         function renderUsers() {
+            const isAdmin = HRMS.currentUser && HRMS.currentUser.role === 'admin';
             return `
             <div class="hrms-toolbar">
-                <button class="hrms-btn-primary" onclick="showAddUser()">+ Add User</button>
+                ${isAdmin ? `<button class="hrms-btn-primary" onclick="showAddUser()">+ Add User</button>` : ''}
+                <span style="font-size:0.82rem;color:#718096;margin-left:auto;">Total: <b>${HRMS.users.length}</b> users</span>
             </div>
             <div id="userFormWrap" style="display:none;" class="hrms-card"></div>
             <div class="hrms-table-wrap">
                 <table class="hrms-table">
-                    <thead><tr><th>User ID</th><th>Name</th><th>Role</th><th>Permissions</th><th>Status</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>User ID</th><th>Name</th><th>Email</th><th>Role</th><th>Permissions</th><th>Status</th>${isAdmin?'<th>Actions</th>':''}</tr></thead>
                     <tbody>${HRMS.users.map(u=>{
-                        const r = HRMS.roles[u.role];
+                        const r = HRMS.roles[u.role] || {label:u.role,color:'#718096',permissions:[]};
                         return `<tr>
                             <td><code>${escapeHTML(u.id)}</code></td>
                             <td>${escapeHTML(u.name)}</td>
+                            <td style="color:#718096;font-size:0.85rem;">${escapeHTML(u.email||'—')}</td>
                             <td><span class="hrms-role-badge" style="background:${r.color}22;color:${r.color}">${r.label}</span></td>
                             <td><div class="hrms-perm-tags">${r.permissions.map(p=>`<span class="hrms-perm-tag">${p}</span>`).join('')}</div></td>
                             <td><span class="hrms-badge ${u.active?'paid':'pending'}">${u.active?'Active':'Disabled'}</span></td>
-                            <td>
-                                <button class="hrms-btn-sm" onclick="toggleUser('${u.id}')">${u.active?'🔒':'🔓'}</button>
-                                <button class="hrms-btn-sm" onclick="editUser('${u.id}')">✏️</button>
-                                ${u.id!=='admin'?`<button class="hrms-btn-sm danger" onclick="deleteUser('${u.id}')">🗑️</button>`:''}
-                            </td>
+                            ${isAdmin ? `<td>
+                                <button class="hrms-btn-sm" onclick="toggleUser('${u.id}')" title="${u.active?'Disable':'Enable'}">${u.active?'🔒 Disable':'🔓 Enable'}</button>
+                                <button class="hrms-btn-sm" onclick="editUser('${u.id}')">✏️ Edit</button>
+                                ${u.id!=='admin'?`<button class="hrms-btn-sm danger" onclick="deleteUser('${u.id}')">🗑️</button>`:'<span style="font-size:0.75rem;color:#9aa5b4;">Protected</span>'}
+                            </td>` : ''}
                         </tr>`}).join('')}
                     </tbody>
                 </table>
@@ -4329,9 +4412,10 @@
             wrap.innerHTML=`
             <h4>${u?'Edit':'Add'} User</h4>
             <div class="hrms-form-grid">
-                <div class="hrms-form-field"><label>User ID</label><input id="uf_id" value="${escapeHTML(u?.id||'')}" ${u?'readonly':''}></div>
+                <div class="hrms-form-field"><label>User ID</label><input id="uf_id" value="${escapeHTML(u?.id||'')}" ${u?'readonly style="background:#f7fafc;color:#9aa5b4;"':''}></div>
                 <div class="hrms-form-field"><label>Full Name</label><input id="uf_name" value="${escapeHTML(u?.name||'')}"></div>
-                <div class="hrms-form-field"><label>Password</label><input id="uf_pwd" type="password" placeholder="${u?'Leave blank to keep':'Set password'}"></div>
+                <div class="hrms-form-field"><label>Email <span style="color:#9aa5b4;font-weight:400;">(for password reset)</span></label><input id="uf_email" type="email" value="${escapeHTML(u?.email||'')}" placeholder="user@example.com"></div>
+                <div class="hrms-form-field"><label>Password</label><input id="uf_pwd" type="password" placeholder="${u?'Leave blank to keep current':'Set password (min 6 chars)'}"></div>
                 <div class="hrms-form-field"><label>Role</label>
                     <select id="uf_role">
                         ${Object.entries(HRMS.roles).map(([k,r])=>`<option value="${escapeHTML(k)}" ${u?.role===k?'selected':''}>${escapeHTML(r.label)}</option>`).join('')}
@@ -4345,15 +4429,19 @@
         }
 
         async function saveUser(id) {
-            const uid = document.getElementById('uf_id').value.trim();
-            const name = document.getElementById('uf_name').value.trim();
-            const pwd = document.getElementById('uf_pwd').value;
-            const role = document.getElementById('uf_role').value;
+            const uid   = document.getElementById('uf_id').value.trim();
+            const name  = document.getElementById('uf_name').value.trim();
+            const email = document.getElementById('uf_email').value.trim();
+            const pwd   = document.getElementById('uf_pwd').value;
+            const role  = document.getElementById('uf_role').value;
             if (!uid||!name) { alert('User ID and Name are required'); return; }
             if (!/^[a-zA-Z0-9_-]{2,32}$/.test(uid)) { alert('User ID may only contain letters, numbers, hyphens and underscores (2-32 characters).'); return; }
             try {
                 if (id) {
-                    const updated = await apiFetch('/users/' + encodeURIComponent(id), { method: 'PUT', body: { name, role, password: pwd || undefined } });
+                    const updated = await apiFetch('/users/' + encodeURIComponent(id), {
+                        method: 'PUT',
+                        body: { name, email: email||undefined, role, password: pwd || undefined }
+                    });
                     const arr = HRMS.users;
                     const idx = arr.findIndex(x => x.id === id);
                     if (idx > -1) arr[idx] = updated;
@@ -4361,7 +4449,10 @@
                 } else {
                     if (!pwd) { alert('Password is required for new users'); return; }
                     if (pwd.length < 6) { alert('Password must be at least 6 characters'); return; }
-                    const created = await apiFetch('/users', { method: 'POST', body: { id: uid, name, password: pwd, role } });
+                    const created = await apiFetch('/users', {
+                        method: 'POST',
+                        body: { id: uid, name, email: email||undefined, password: pwd, role }
+                    });
                     HRMS.users = [...HRMS.users, created];
                 }
             } catch (e) { alert(e.message); return; }
@@ -4392,19 +4483,32 @@
 
         // ── ATTENDANCE ────────────────────────────────────────────────────
         function renderAttendance() {
-            const today = new Date().toISOString().split('T')[0];
+            const today  = new Date().toISOString().split('T')[0];
+            const role   = HRMS.currentUser ? HRMS.currentUser.role : '';
+            const uid    = HRMS.currentUser ? HRMS.currentUser.id  : '';
+            const canMarkAll = ['admin','manager','hr'].includes(role);
+            // Employees only see their own row
+            const empList = canMarkAll
+                ? HRMS.employees.filter(e => e.status === 'Active')
+                : HRMS.employees.filter(e => e.status === 'Active' && e.id === uid);
+
+            if (empList.length === 0 && !canMarkAll) {
+                return `<div class="hrms-card" style="text-align:center;color:#9aa5b4;padding:2.5rem;">
+                    📋 Your employee record is not linked. Contact HR.
+                </div>`;
+            }
             return `
             <div class="hrms-card">
-                <h4>Mark Attendance — ${new Date().toDateString()}</h4>
+                <h4>${canMarkAll ? 'Mark' : 'My'} Attendance — ${new Date().toDateString()}</h4>
                 <div class="hrms-table-wrap">
                     <table class="hrms-table">
                         <thead><tr><th>Employee</th><th>Department</th><th>Status</th></tr></thead>
-                        <tbody>${HRMS.employees.filter(e=>e.status==='Active').map(e=>`
+                        <tbody>${empList.map(e=>`
                         <tr>
-                            <td>${escapeHTML(e.name)}</td>
+                            <td><span class="hrms-avatar sm">${escapeHTML(e.name.charAt(0))}</span> ${escapeHTML(e.name)}</td>
                             <td>${escapeHTML(e.dept)}</td>
                             <td>
-                                <select class="hrms-select-inline" data-emp-id="${escapeHTML(e.id)}" id="att_${escapeHTML(e.id)}">
+                                <select class="hrms-select-inline" data-emp-id="${escapeHTML(e.id)}" id="att_${escapeHTML(e.id)}" ${!canMarkAll ? 'disabled style="opacity:0.6"' : ''}>
                                     <option>Present</option>
                                     <option>Absent</option>
                                     <option>Half Day</option>
@@ -4416,7 +4520,8 @@
                     </table>
                 </div>
                 <div id="attMsg" style="margin-top:0.75rem;"></div>
-                <button class="hrms-btn-primary" style="margin-top:0.5rem;" onclick="saveAttendance('${today}')">💾 Save Attendance</button>
+                ${canMarkAll ? `<button class="hrms-btn-primary" style="margin-top:0.5rem;" onclick="saveAttendance('${today}')">💾 Save Attendance</button>` : 
+                  `<p style="color:#718096;font-size:0.85rem;margin-top:0.75rem;">Contact your HR/Manager to update your attendance.</p>`}
             </div>`;
         }
 
@@ -4438,11 +4543,29 @@
 
         // ── PAYROLL ───────────────────────────────────────────────────────
         function renderPayroll() {
+            const role = HRMS.currentUser ? HRMS.currentUser.role : '';
+            const uid  = HRMS.currentUser ? HRMS.currentUser.id  : '';
+            const canSeeAll    = ['admin','manager','hr'].includes(role);
+            const canGenPayslip= ['admin','hr'].includes(role);
+            // Employees only see their own record (matched by user id = employee id)
+            const list = canSeeAll ? HRMS.employees : HRMS.employees.filter(e => e.id === uid);
+            if (list.length === 0 && !canSeeAll) {
+                return `<div class="hrms-card" style="text-align:center;color:#9aa5b4;padding:2.5rem;">
+                    📋 Your payroll record is not set up yet. Contact HR.
+                </div>`;
+            }
             return `
+            <div class="hrms-card" style="margin-bottom:1rem;">
+                <b style="color:#1A1A72;">💰 ${canSeeAll ? 'All Employees' : 'My'} Payroll — ${new Date().toLocaleString('en-IN',{month:'long',year:'numeric'})}</b>
+            </div>
             <div class="hrms-table-wrap">
                 <table class="hrms-table">
-                    <thead><tr><th>Employee</th><th>Designation</th><th>Basic</th><th>Allowances</th><th>Deductions</th><th>Net Pay</th><th>Action</th></tr></thead>
-                    <tbody>${HRMS.employees.map(e=>{
+                    <thead><tr>
+                        <th>Employee</th><th>Designation</th><th>Basic</th>
+                        <th>Allowances</th><th>Deductions</th><th>Net Pay</th>
+                        ${canGenPayslip ? '<th>Action</th>' : ''}
+                    </tr></thead>
+                    <tbody>${list.map(e=>{
                         const allowance = Math.round(e.salary * 0.20);
                         const deduction = Math.round(e.salary * 0.12);
                         const net = e.salary + allowance - deduction;
@@ -4453,8 +4576,8 @@
                             <td style="color:#48bb78;">+₹${allowance.toLocaleString()}</td>
                             <td style="color:#fc8181;">-₹${deduction.toLocaleString()}</td>
                             <td><b>₹${net.toLocaleString()}</b></td>
-                            <td><button class="hrms-btn-sm" onclick="genPayslip('${e.id}')">🧾 Payslip</button></td>
-                        </tr>`}).join('')}
+                            ${canGenPayslip ? `<td><button class="hrms-btn-sm" onclick="genPayslip('${e.id}')">🧾 Payslip</button></td>` : ''}
+                        </tr>`;}).join('')}
                     </tbody>
                 </table>
             </div>`;
@@ -4652,8 +4775,12 @@
 
         // ── INVOICE ───────────────────────────────────────────────────────
         function renderInvoice() {
+            var role = HRMS.currentUser ? HRMS.currentUser.role : '';
+            var canCreate     = ['admin'].includes(role);
+            var canMarkStatus = ['admin','manager'].includes(role);
             return '<div class="hrms-toolbar">'
-              + '<button class="hrms-btn-primary" onclick="showAddInvoice()">+ New Invoice</button>'
+              + (canCreate ? '<button class="hrms-btn-primary" onclick="showAddInvoice()">+ New Invoice</button>' : '')
+              + '<span style="font-size:0.82rem;color:#718096;margin-left:auto;">Total invoices: <b>' + HRMS.invoices.length + '</b></span>'
               + '</div>'
               + '<div id="invFormWrap" style="display:none;" class="hrms-card"></div>'
               + '<div class="hrms-table-wrap"><table class="hrms-table">'
@@ -4665,13 +4792,15 @@
                   return '<tr>'
                     + '<td><b>' + escapeHTML(i.id) + '</b></td>'
                     + '<td>' + escapeHTML(i.client) + '</td>'
-                    + '<td>Rs.' + amount.toLocaleString() + '</td>'
-                    + '<td>Rs.' + gst.toLocaleString() + '</td>'
-                    + '<td><b>Rs.' + total.toLocaleString() + '</b></td>'
-                    + '<td>' + i.date + '</td>'
-                    + '<td><span class="hrms-badge ' + (i.status==='Paid'?'paid':'pending') + '">' + i.status + '</span></td>'
-                    + '<td><button class="hrms-btn-sm" onclick="printInvoice(\'' + i.id + '\')">Print</button> '
-                    + '<button class="hrms-btn-sm" onclick="toggleInvStatus(\'' + i.id + '\')">' + (i.status==='Paid'?'Mark Pending':'Mark Paid') + '</button></td>'
+                    + '<td>₹' + amount.toLocaleString() + '</td>'
+                    + '<td>₹' + gst.toLocaleString() + '</td>'
+                    + '<td><b>₹' + total.toLocaleString() + '</b></td>'
+                    + '<td>' + escapeHTML(i.date||'') + '</td>'
+                    + '<td><span class="hrms-badge ' + (i.status==='Paid'?'paid':'pending') + '">' + escapeHTML(i.status) + '</span></td>'
+                    + '<td>'
+                    + '<button class="hrms-btn-sm" onclick="printInvoice(\'' + i.id + '\')">🖨️ Print</button> '
+                    + (canMarkStatus ? '<button class="hrms-btn-sm" onclick="toggleInvStatus(\'' + i.id + '\')">' + (i.status==='Paid'?'Mark Pending':'Mark Paid') + '</button>' : '')
+                    + '</td>'
                     + '</tr>';
               }).join('') + '</tbody></table></div>';
         }
@@ -4852,6 +4981,8 @@
 
         // ── REQUESTS (contact form submissions) ─────────────────────────────
         function renderRequests() {
+            var role = HRMS.currentUser ? HRMS.currentUser.role : '';
+            var canUpdateStatus = ['admin','manager','hr'].includes(role);
             if (_cache.contactRequests === null) {
                 loadContactRequests();
                 return '<div class="hrms-card" style="text-align:center;color:#9aa5b4;padding:2.5rem;">Loading requests…</div>';
@@ -4859,26 +4990,29 @@
             var list = _cache.contactRequests;
             if (list.length === 0) {
                 return '<div class="hrms-card" style="text-align:center;color:#9aa5b4;padding:2.5rem;">'
-                  + '📨 No contact requests yet.<br><span style="font-size:0.85rem;">Submissions from the website\'s Contact form and Contact Us page will show up here.</span></div>';
+                  + '📨 No contact requests yet.<br><span style="font-size:0.85rem;">Submissions from the website\'s Contact form will show up here.</span></div>';
             }
-            return '<div class="hrms-toolbar"><button class="hrms-btn-sm" onclick="loadContactRequests(true)">🔄 Refresh</button></div>'
+            return '<div class="hrms-toolbar"><button class="hrms-btn-sm" onclick="loadContactRequests(true)">🔄 Refresh</button>'
+              + '<span style="font-size:0.82rem;color:#718096;margin-left:auto;">Total: <b>' + list.length + '</b> requests</span></div>'
               + '<div class="hrms-table-wrap"><table class="hrms-table">'
-              + '<thead><tr><th>Name</th><th>Mobile</th><th>Email</th><th>Service</th><th>Message</th><th>Received</th><th>Status</th><th>Actions</th></tr></thead>'
+              + '<thead><tr><th>Name</th><th>Mobile</th><th>Email</th><th>Service</th><th>Message</th><th>Received</th><th>Status</th>'
+              + (canUpdateStatus ? '<th>Update</th>' : '') + '</tr></thead>'
               + '<tbody>' + list.map(function(r) {
                   var statusClass = r.status === 'New' ? 'new' : (r.status === 'Contacted' ? 'contacted' : 'closed');
                   var received = r.created_at ? new Date(r.created_at).toLocaleString('en-IN', {dateStyle:'medium', timeStyle:'short'}) : '';
                   return '<tr>'
                     + '<td><b>' + escapeHTML(r.name) + '</b>' + (r.company ? '<br><small style="color:#9aa5b4;">' + escapeHTML(r.company) + '</small>' : '') + '</td>'
-                    + '<td><a href="tel:' + escapeHTML(r.mobile) + '" style="color:#66D12F;">' + escapeHTML(r.mobile) + '</a></td>'
+                    + '<td><a href="tel:' + escapeHTML(r.mobile||'') + '" style="color:#66D12F;">' + escapeHTML(r.mobile||'—') + '</a></td>'
                     + '<td>' + (r.email ? '<a href="mailto:' + encodeURIComponent(r.email) + '" style="color:#66D12F;">' + escapeHTML(r.email) + '</a>' : '<span style="color:#9aa5b4;">—</span>') + '</td>'
                     + '<td>' + (r.service ? escapeHTML(r.service) : '<span style="color:#9aa5b4;">—</span>') + '</td>'
-                    + '<td style="max-width:220px;">' + (r.message ? escapeHTML(r.message) : '<span style="color:#9aa5b4;">—</span>') + '</td>'
+                    + '<td style="max-width:200px;white-space:normal;">' + (r.message ? escapeHTML(r.message) : '<span style="color:#9aa5b4;">—</span>') + '</td>'
                     + '<td style="white-space:nowrap;">' + received + '</td>'
                     + '<td><span class="hrms-badge ' + statusClass + '">' + escapeHTML(r.status) + '</span></td>'
-                    + '<td style="white-space:nowrap;">'
-                    + '<select class="hrms-select-inline" onchange="updateRequestStatus(' + r.id + ', this.value)">'
-                    + ['New','Contacted','Closed'].map(function(s){ return '<option value="' + s + '"' + (s===r.status?' selected':'') + '>' + s + '</option>'; }).join('')
-                    + '</select></td>'
+                    + (canUpdateStatus
+                        ? '<td style="white-space:nowrap;"><select class="hrms-select-inline" onchange="updateRequestStatus(' + r.id + ', this.value)">'
+                          + ['New','Contacted','Closed'].map(function(s){ return '<option value="' + s + '"' + (s===r.status?' selected':'') + '>' + s + '</option>'; }).join('')
+                          + '</select></td>'
+                        : '')
                     + '</tr>';
               }).join('') + '</tbody></table></div>';
         }
@@ -5064,23 +5198,43 @@
         window.renderWebsite = renderWebsite;
 
         function renderSettings() {
-            const u = HRMS.currentUser || {};
+            const u    = HRMS.currentUser || {};
+            const role = HRMS.roles[u.role] || {};
+            const isAdmin = u.role === 'admin';
             return `
             <div class="hrms-card">
-                <h4>Change Password</h4>
-                <p style="color:#9aa5b4;font-size:0.88rem;margin-bottom:1rem;">Update the password for your own account (${escapeHTML(u.name||'')}).</p>
+                <h4>👤 My Account</h4>
+                <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.2rem;padding:1rem;background:#f7fafc;border-radius:10px;">
+                    <div class="hrms-user-avatar" style="width:48px;height:48px;font-size:1.3rem;">${escapeHTML((u.name||'?').charAt(0))}</div>
+                    <div>
+                        <div style="font-weight:700;font-size:1rem;color:#1a202c;">${escapeHTML(u.name||'')}</div>
+                        <div style="font-size:0.82rem;color:#718096;">User ID: <code>${escapeHTML(u.id||'')}</code></div>
+                        <div style="margin-top:4px;"><span class="hrms-role-badge" style="background:${role.color||'#edf2f7'}22;color:${role.color||'#4a5568'};">${role.label||u.role}</span></div>
+                    </div>
+                </div>
+                <h4>🔒 Change Password</h4>
+                <p style="color:#9aa5b4;font-size:0.88rem;margin-bottom:1rem;">Update the password for your own account.</p>
                 <div class="hrms-form-grid">
-                    <div class="hrms-form-field"><label>Current Password</label><input type="password" id="cpw_current"></div>
+                    <div class="hrms-form-field"><label>Current Password</label><input type="password" id="cpw_current" placeholder="Enter current password"></div>
                     <div class="hrms-form-field"><label>New Password</label><input type="password" id="cpw_new" placeholder="Minimum 6 characters"></div>
-                    <div class="hrms-form-field"><label>Confirm New Password</label><input type="password" id="cpw_confirm"></div>
+                    <div class="hrms-form-field"><label>Confirm New Password</label><input type="password" id="cpw_confirm" placeholder="Repeat new password"></div>
                 </div>
                 <div id="cpwMsg" style="margin-top:0.75rem;"></div>
                 <button class="hrms-btn-primary" style="margin-top:1rem;" onclick="changeOwnPassword()">🔒 Update Password</button>
             </div>
             <div class="hrms-card" style="margin-top:1.2rem;">
-                <h4>Company Info</h4>
-                <p style="color:#9aa5b4;font-size:0.88rem;margin-bottom:0.5rem;">Managed under the <b>Website</b> tab, which controls what's shown to visitors on the public site.</p>
-            </div>`;
+                <h4>🔑 My Permissions</h4>
+                <p style="color:#718096;font-size:0.85rem;margin-bottom:0.75rem;">Modules accessible with your <b>${role.label||u.role}</b> role:</p>
+                <div class="hrms-perm-tags">
+                    ${(role.permissions||[]).map(p=>`<span class="hrms-perm-tag" style="font-size:0.82rem;padding:4px 12px;">✅ ${p.charAt(0).toUpperCase()+p.slice(1)}</span>`).join('')}
+                </div>
+                ${!isAdmin ? `<p style="color:#9aa5b4;font-size:0.8rem;margin-top:1rem;">Contact your Admin to request additional access.</p>` : ''}
+            </div>
+            ${isAdmin ? `
+            <div class="hrms-card" style="margin-top:1.2rem;">
+                <h4>🌐 Company Info</h4>
+                <p style="color:#9aa5b4;font-size:0.88rem;">Managed under the <b>Website</b> tab — controls what visitors see on the public site.</p>
+            </div>` : ''}`;
         }
 
         async function changeOwnPassword() {

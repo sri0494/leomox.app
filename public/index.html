@@ -329,7 +329,7 @@
             to { transform: translateY(0); opacity: 1; }
         }
 
-        nav {
+        .site-nav {
             max-width: 1400px;
             margin: 0 auto;
             display: flex;
@@ -1521,7 +1521,7 @@
         @media (max-width: 900px) {
             .hamburger { display: flex !important; }
             .nav-links { display: none !important; }
-            nav {
+            .site-nav {
                 flex-direction: row !important;
                 gap: 0 !important;
             }
@@ -2814,7 +2814,7 @@
     </div>
 
     <header>
-        <nav>
+        <nav class="site-nav">
             <a href="#home" class="logo">
                 <canvas id="nav-gem" width="75" height="75" style="display:block;flex-shrink:0;margin-right:-6px;"></canvas>
                 <div style="display: flex; flex-direction: column;">
@@ -2911,9 +2911,9 @@
             <li><a href="#developers">Developers</a></li>
         </ul>
         <div class="mobile-nav-footer">
-            <a href="#" class="btn btn-primary" onclick="event.preventDefault();showPage('contact-page')">Contact Us</a>
-            <a href="#" class="btn btn-secondary" id="mobileLoginBtn" onclick="event.preventDefault();showPage('login')">🔐 Login</a>
-            <button id="mobileLogoutBtn" class="btn-logout-mobile" onclick="hrmsLogout()" style="display:none;">⬅ Logout</button>
+            <a href="#" class="btn btn-primary" onclick="event.preventDefault();closeMenu();showPage('contact-page')">Contact Us</a>
+            <a href="#" class="btn btn-secondary" id="mobileLoginBtn" onclick="event.preventDefault();closeMenu();showPage('login')">🔐 Login</a>
+            <button id="mobileLogoutBtn" class="btn-logout-mobile" onclick="closeMenu();hrmsLogout()" style="display:none;">⬅ Logout</button>
         </div>
     </div>
 
@@ -3924,7 +3924,10 @@
         });
 
         // Close menu when any mobile nav link is clicked
-        document.querySelectorAll('.mobile-nav-links a, .mobile-nav-footer a').forEach(link => {
+        // (skip links that already have their own onclick — e.g. Contact Us
+        // and Login below — so this generic handler doesn't fire a second,
+        // conflicting navigation right after theirs and silently undo it)
+        document.querySelectorAll('.mobile-nav-links a, .mobile-nav-footer a:not([onclick])').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const href = link.getAttribute('href');

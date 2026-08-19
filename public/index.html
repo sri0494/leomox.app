@@ -315,7 +315,7 @@
             top: 0;
             left: 0;
             width: 100%;
-            padding: 1rem 5%;
+            padding: 1rem 3%;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px) saturate(180%);
             border-bottom: 1px solid rgba(102, 209, 47, 0.1);
@@ -330,8 +330,9 @@
         }
 
         .site-nav {
-            max-width: 1400px;
-            margin: 0 auto;
+            max-width: 100%;
+            width: 100%;
+            margin: 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -489,7 +490,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 8rem 5% 4rem;
+            padding: 8rem 3% 4rem;
             position: relative;
             overflow: hidden;
         }
@@ -506,7 +507,7 @@
         }
 
         .hero-content {
-            max-width: 1400px;
+            max-width: 100%;
             width: 100%;
             text-align: center;
             animation: fadeInUp 1s ease-out 0.3s both;
@@ -515,7 +516,7 @@
         }
 
         .hero-flex {
-            max-width: 1400px;
+            max-width: 100%;
             width: 100%;
             display: flex;
             align-items: center;
@@ -697,13 +698,14 @@
 
         /* Section Styles */
         .section {
-            padding: 6rem 5%;
+            padding: 6rem 3%;
             position: relative;
         }
 
         .container {
-            max-width: 1400px;
+            max-width: min(1600px, 96%);
             margin: 0 auto;
+            width: 100%;
         }
 
         .section-title {
@@ -1111,14 +1113,14 @@
         footer {
             background: linear-gradient(135deg, #1A1A72 0%, #12123F 100%);
             border-top: 3px solid var(--primary);
-            padding: 4rem 5% 2rem;
+            padding: 4rem 3% 2rem;
             position: relative;
             overflow: hidden;
         }
 
         .footer-visual {
-            max-width: 1400px;
-            margin: 0 auto 3rem;
+            max-width: 100%;
+            margin: 0 0 3rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -1165,12 +1167,11 @@
         }
 
         .footer-content {
-            max-width: 1400px;
-            margin: 0 auto;
+            max-width: 100%;
+            margin: 0 0 3rem;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 3rem;
-            margin-bottom: 3rem;
             position: relative;
             z-index: 1;
         }
@@ -1717,8 +1718,28 @@
 
 
         /* ── HRMS Shell — Light Theme ── */
-        #hrms { background: #f0f4f8; min-height: 100vh; padding-top: 0 !important; }
-        .hrms-shell { display:flex; min-height:100vh; gap:0; border-radius:0; overflow:hidden; border:none; box-shadow: 0 0 40px rgba(0,0,0,0.08); }
+        #hrms { background: #f0f4f8; min-height: 100vh; padding: 0 !important; width: 100%; }
+        .hrms-shell { display:flex; width:100%; min-height:100vh; gap:0; border-radius:0; overflow:hidden; border:none; }
+
+        /* ── Full-width layout for large/wide screens ─────────────── */
+        @media (min-width: 1440px) {
+            header { padding: 1rem 3%; }
+            .hero  { padding: 8rem 3% 4rem; }
+            .section { padding: 6rem 3%; }
+            footer { padding: 4rem 3% 2rem; }
+            .hero-flex .hero-content { max-width: 54%; }
+            .hero-visual { max-width: 44%; }
+        }
+        @media (min-width: 1600px) {
+            .hrms-sidebar { width: 250px; min-width: 250px; max-width: 250px; }
+        }
+        @media (min-width: 1920px) {
+            header { padding: 1rem 2.5%; }
+            .hero  { padding: 8rem 2.5% 4rem; }
+            .section { padding: 6rem 2.5%; }
+            footer { padding: 4rem 2.5% 2rem; }
+            .hrms-sidebar { width: 260px; min-width: 260px; max-width: 260px; }
+        }
 
         /* Sidebar */
         .hrms-sidebar { width:230px; min-width:230px; max-width:230px; background:linear-gradient(180deg,#1A1A72 0%,#12123F 100%); display:flex; flex-direction:column; padding:1.2rem 0; border-right:none; transition:transform 0.3s; flex-shrink:0; }
@@ -1731,11 +1752,11 @@
         .hrms-user-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#66D12F,#4FA61F); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem; color:#fff; flex-shrink:0; }
 
         /* Main area */
-        .hrms-main { flex:1; display:flex; flex-direction:column; min-width:0; background:#f0f4f8; }
-        .hrms-header { display:flex; align-items:center; gap:1rem; padding:1rem 1.5rem; border-bottom:1px solid #e2e8f0; background:#ffffff; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+        .hrms-main { flex:1 1 0; display:flex; flex-direction:column; min-width:0; width:0; background:#f0f4f8; overflow:hidden; }
+        .hrms-header { display:flex; align-items:center; gap:1rem; padding:1rem 1.5rem; border-bottom:1px solid #e2e8f0; background:#ffffff; box-shadow:0 1px 4px rgba(0,0,0,0.06); width:100%; box-sizing:border-box; }
         .hrms-page-title { flex:1; font-size:1.2rem; font-weight:700; color:#1a202c; margin:0; }
         .hrms-menu-toggle { display:none; background:none; border:none; color:#1a202c; font-size:1.4rem; cursor:pointer; }
-        .hrms-content { padding:1.5rem; flex:1; overflow-y:auto; }
+        .hrms-content { padding:1.5rem; flex:1; overflow-y:auto; width:100%; box-sizing:border-box; }
 
         /* Cards */
         .hrms-card { background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:1.4rem; margin-bottom:1.2rem; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
@@ -1778,13 +1799,13 @@
         .hrms-avatar.sm { width:24px; height:24px; font-size:0.7rem; }
 
         /* Dashboard stats */
-        .hrms-dash-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.5rem; }
+        .hrms-dash-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; margin-bottom:1.5rem; width:100%; }
         .hds-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:1.2rem; text-align:center; transition:transform 0.2s,box-shadow 0.2s; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
         .hds-card:hover { transform:translateY(-3px); box-shadow:0 6px 20px rgba(0,0,0,0.1); }
         .hds-icon { font-size:1.8rem; margin-bottom:0.4rem; }
         .hds-num { font-size:1.8rem; font-weight:800; color:#1A1A72; }
         .hds-label { font-size:0.78rem; color:#718096; margin-top:2px; }
-        .hrms-dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+        .hrms-dash-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; width:100%; }
         .hrms-list-row { display:flex; align-items:center; gap:0.75rem; padding:0.65rem 0; border-bottom:1px solid #f0f4f8; }
         .hrms-list-row b { color:#2d3748; font-size:0.9rem; }
         .hrms-list-row small { color:#718096; font-size:0.78rem; }
@@ -3596,8 +3617,8 @@
 
     
     <!-- HRMS Portal Section -->
-    <section id="hrms" class="section" style="padding-top:6rem;min-height:100vh;">
-        <div class="container" id="hrmsApp">
+    <section id="hrms" style="min-height:100vh;padding:0;">
+        <div id="hrmsApp" style="width:100%;height:100%;">
             <!-- Rendered by JS -->
         </div>
     </section>

@@ -315,7 +315,7 @@
             top: 0;
             left: 0;
             width: 100%;
-            padding: 1rem 3%;
+            padding: 1rem 5%;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px) saturate(180%);
             border-bottom: 1px solid rgba(102, 209, 47, 0.1);
@@ -330,9 +330,8 @@
         }
 
         .site-nav {
-            max-width: 100%;
-            width: 100%;
-            margin: 0;
+            max-width: 1400px;
+            margin: 0 auto;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -490,7 +489,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 8rem 3% 4rem;
+            padding: 8rem 5% 4rem;
             position: relative;
             overflow: hidden;
         }
@@ -507,7 +506,7 @@
         }
 
         .hero-content {
-            max-width: 100%;
+            max-width: 1400px;
             width: 100%;
             text-align: center;
             animation: fadeInUp 1s ease-out 0.3s both;
@@ -516,7 +515,7 @@
         }
 
         .hero-flex {
-            max-width: 100%;
+            max-width: 1400px;
             width: 100%;
             display: flex;
             align-items: center;
@@ -698,14 +697,13 @@
 
         /* Section Styles */
         .section {
-            padding: 6rem 3%;
+            padding: 6rem 5%;
             position: relative;
         }
 
         .container {
-            max-width: min(1600px, 96%);
+            max-width: 1400px;
             margin: 0 auto;
-            width: 100%;
         }
 
         .section-title {
@@ -1113,14 +1111,14 @@
         footer {
             background: linear-gradient(135deg, #1A1A72 0%, #12123F 100%);
             border-top: 3px solid var(--primary);
-            padding: 4rem 3% 2rem;
+            padding: 4rem 5% 2rem;
             position: relative;
             overflow: hidden;
         }
 
         .footer-visual {
-            max-width: 100%;
-            margin: 0 0 3rem;
+            max-width: 1400px;
+            margin: 0 auto 3rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -1167,11 +1165,12 @@
         }
 
         .footer-content {
-            max-width: 100%;
-            margin: 0 0 3rem;
+            max-width: 1400px;
+            margin: 0 auto;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 3rem;
+            margin-bottom: 3rem;
             position: relative;
             z-index: 1;
         }
@@ -1718,28 +1717,8 @@
 
 
         /* ── HRMS Shell — Light Theme ── */
-        #hrms { background: #f0f4f8; min-height: 100vh; padding: 0 !important; width: 100%; }
-        .hrms-shell { display:flex; width:100%; min-height:100vh; gap:0; border-radius:0; overflow:hidden; border:none; }
-
-        /* ── Full-width layout for large/wide screens ─────────────── */
-        @media (min-width: 1440px) {
-            header { padding: 1rem 3%; }
-            .hero  { padding: 8rem 3% 4rem; }
-            .section { padding: 6rem 3%; }
-            footer { padding: 4rem 3% 2rem; }
-            .hero-flex .hero-content { max-width: 54%; }
-            .hero-visual { max-width: 44%; }
-        }
-        @media (min-width: 1600px) {
-            .hrms-sidebar { width: 250px; min-width: 250px; max-width: 250px; }
-        }
-        @media (min-width: 1920px) {
-            header { padding: 1rem 2.5%; }
-            .hero  { padding: 8rem 2.5% 4rem; }
-            .section { padding: 6rem 2.5%; }
-            footer { padding: 4rem 2.5% 2rem; }
-            .hrms-sidebar { width: 260px; min-width: 260px; max-width: 260px; }
-        }
+        #hrms { background: #f0f4f8; min-height: 100vh; padding-top: 0 !important; }
+        .hrms-shell { display:flex; min-height:100vh; gap:0; border-radius:0; overflow:hidden; border:none; box-shadow: 0 0 40px rgba(0,0,0,0.08); }
 
         /* Sidebar */
         .hrms-sidebar { width:230px; min-width:230px; max-width:230px; background:linear-gradient(180deg,#1A1A72 0%,#12123F 100%); display:flex; flex-direction:column; padding:1.2rem 0; border-right:none; transition:transform 0.3s; flex-shrink:0; }
@@ -1752,11 +1731,11 @@
         .hrms-user-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#66D12F,#4FA61F); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem; color:#fff; flex-shrink:0; }
 
         /* Main area */
-        .hrms-main { flex:1 1 0; display:flex; flex-direction:column; min-width:0; width:0; background:#f0f4f8; overflow:hidden; }
-        .hrms-header { display:flex; align-items:center; gap:1rem; padding:1rem 1.5rem; border-bottom:1px solid #e2e8f0; background:#ffffff; box-shadow:0 1px 4px rgba(0,0,0,0.06); width:100%; box-sizing:border-box; }
+        .hrms-main { flex:1; display:flex; flex-direction:column; min-width:0; background:#f0f4f8; }
+        .hrms-header { display:flex; align-items:center; gap:1rem; padding:1rem 1.5rem; border-bottom:1px solid #e2e8f0; background:#ffffff; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
         .hrms-page-title { flex:1; font-size:1.2rem; font-weight:700; color:#1a202c; margin:0; }
         .hrms-menu-toggle { display:none; background:none; border:none; color:#1a202c; font-size:1.4rem; cursor:pointer; }
-        .hrms-content { padding:1.5rem; flex:1; overflow-y:auto; width:100%; box-sizing:border-box; }
+        .hrms-content { padding:1.5rem; flex:1; overflow-y:auto; }
 
         /* Cards */
         .hrms-card { background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:1.4rem; margin-bottom:1.2rem; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
@@ -1799,13 +1778,13 @@
         .hrms-avatar.sm { width:24px; height:24px; font-size:0.7rem; }
 
         /* Dashboard stats */
-        .hrms-dash-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; margin-bottom:1.5rem; width:100%; }
+        .hrms-dash-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.5rem; }
         .hds-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:1.2rem; text-align:center; transition:transform 0.2s,box-shadow 0.2s; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
         .hds-card:hover { transform:translateY(-3px); box-shadow:0 6px 20px rgba(0,0,0,0.1); }
         .hds-icon { font-size:1.8rem; margin-bottom:0.4rem; }
         .hds-num { font-size:1.8rem; font-weight:800; color:#1A1A72; }
         .hds-label { font-size:0.78rem; color:#718096; margin-top:2px; }
-        .hrms-dash-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; width:100%; }
+        .hrms-dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
         .hrms-list-row { display:flex; align-items:center; gap:0.75rem; padding:0.65rem 0; border-bottom:1px solid #f0f4f8; }
         .hrms-list-row b { color:#2d3748; font-size:0.9rem; }
         .hrms-list-row small { color:#718096; font-size:0.78rem; }
@@ -2795,6 +2774,15 @@
             gap: 0.5rem;
         }
 
+        .cpg-error {
+            background: #fff5f5;
+            border: 1px solid #fed7d7;
+            color: #c53030;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
         .cpg-success { text-align: center; padding: 2rem 0; }
         .cpg-success-icon { font-size: 2.8rem; margin-bottom: 0.8rem; }
         .cpg-success h3 { color: #1A1A72; margin-bottom: 0.5rem; }
@@ -3530,8 +3518,13 @@
                     </div>
                     <div id="cpgSuccess" class="cpg-success" style="display:none;">
                         <div class="cpg-success-icon">✅</div>
-                        <h3>Thank you!</h3>
-                        <p>Your message has been received. Our team will get back to you shortly.</p>
+                        <h3>Thank you for reaching out!</h3>
+                        <p style="color:#2d6a4f;font-weight:500;">Your request has been submitted successfully.</p>
+                        <p style="color:#718096;font-size:0.95rem;margin-top:0.5rem;">We will get in touch with you soon. You can also reach us directly at <strong>info@leomox.in</strong></p>
+                        <button onclick="document.getElementById('cpgFormBody').style.display='block';document.getElementById('cpgSuccess').style.display='none';"
+                            style="margin-top:1.2rem;background:none;border:1px solid #66D12F;color:#66D12F;padding:0.5rem 1.2rem;border-radius:6px;cursor:pointer;font-family:Outfit,sans-serif;font-size:0.9rem;">
+                            ← Submit Another Request
+                        </button>
                     </div>
                 </div>
             </div>
@@ -3617,8 +3610,8 @@
 
     
     <!-- HRMS Portal Section -->
-    <section id="hrms" style="min-height:100vh;padding:0;">
-        <div id="hrmsApp" style="width:100%;height:100%;">
+    <section id="hrms" class="section" style="padding-top:6rem;min-height:100vh;">
+        <div class="container" id="hrmsApp">
             <!-- Rendered by JS -->
         </div>
     </section>
@@ -4941,7 +4934,7 @@
             }
             return '<div class="hrms-toolbar"><button class="hrms-btn-sm" onclick="loadContactRequests(true)">🔄 Refresh</button></div>'
               + '<div class="hrms-table-wrap"><table class="hrms-table">'
-              + '<thead><tr><th>Name</th><th>Mobile</th><th>Email</th><th>Service</th><th>Message</th><th>Received</th><th>Status</th><th>Actions</th></tr></thead>'
+              + '<thead><tr><th>Name</th><th>Mobile</th><th>Email</th><th>Service</th><th>Company</th><th>Message</th><th>Received</th><th>Status</th><th>Actions</th></tr></thead>'
               + '<tbody>' + list.map(function(r) {
                   var statusClass = r.status === 'New' ? 'new' : (r.status === 'Contacted' ? 'contacted' : 'closed');
                   var received = r.created_at ? new Date(r.created_at).toLocaleString('en-IN', {dateStyle:'medium', timeStyle:'short'}) : '';
@@ -4950,6 +4943,7 @@
                     + '<td><a href="tel:' + escapeHTML(r.mobile) + '" style="color:#66D12F;">' + escapeHTML(r.mobile) + '</a></td>'
                     + '<td>' + (r.email ? '<a href="mailto:' + encodeURIComponent(r.email) + '" style="color:#66D12F;">' + escapeHTML(r.email) + '</a>' : '<span style="color:#9aa5b4;">—</span>') + '</td>'
                     + '<td>' + (r.service ? escapeHTML(r.service) : '<span style="color:#9aa5b4;">—</span>') + '</td>'
+                    + '<td>' + (r.company ? escapeHTML(r.company) : '<span style="color:#9aa5b4;">—</span>') + '</td>'
                     + '<td style="max-width:220px;">' + (r.message ? escapeHTML(r.message) : '<span style="color:#9aa5b4;">—</span>') + '</td>'
                     + '<td style="white-space:nowrap;">' + received + '</td>'
                     + '<td><span class="hrms-badge ' + statusClass + '">' + escapeHTML(r.status) + '</span></td>'
@@ -4963,9 +4957,10 @@
 
         async function loadContactRequests(forceRerender) {
             try {
-                var data = await apiFetch('/contact');
-                _cache.contactRequests = data;
+                var data = await apiFetch('/contacts');           // ✅ /api/contacts
+                _cache.contactRequests = Array.isArray(data) ? data : [];
             } catch (e) {
+                console.error('loadContactRequests error:', e.message);
                 _cache.contactRequests = [];
             }
             if (forceRerender || HRMS.activeModule === 'requests') {
@@ -4975,11 +4970,14 @@
 
         async function updateRequestStatus(id, status) {
             try {
-                await apiFetch('/contact/' + id + '/status', { method: 'PUT', body: { status: status } });
+                await apiFetch('/contacts/' + id + '/status', {  // ✅ /api/contacts/:id/status
+                    method: 'PATCH',
+                    body: { status: status }
+                });
                 var r = (_cache.contactRequests || []).find(function(x){ return x.id === id; });
                 if (r) r.status = status;
             } catch (e) {
-                alert(e.message);
+                alert('Failed to update status: ' + e.message);
             }
             hrmsRenderModule('requests');
         }
@@ -5447,7 +5445,9 @@
             document.body.style.overflow = '';
         }
 
+        var _cpSubmitting = false;
         async function submitContactForm() {
+            if (_cpSubmitting) return;
             var fname   = (document.getElementById('cp_firstname').value||'').trim();
             var lname   = (document.getElementById('cp_lastname').value||'').trim();
             var mobile  = (document.getElementById('cp_mobile').value||'').trim();
@@ -5455,25 +5455,39 @@
             var service = (document.getElementById('cp_service').value||'').trim();
             var company = (document.getElementById('cp_company').value||'').trim();
             var message = (document.getElementById('cp_message').value||'').trim();
+            var btn     = document.querySelector('#contactPopupOverlay .cpg-submit-btn, #contactPopupOverlay button[onclick*=submitContactForm]');
             var errEl   = document.getElementById('cpError');
 
-            // Validation
-            if (!fname) { showCPError('Please enter your first name.'); return; }
-            if (!lname) { showCPError('Please enter your last name.'); return; }
-            if (!mobile || mobile.replace(/[^0-9]/g,'').length < 10) { showCPError('Please enter a valid 10-digit mobile number.'); return; }
-            if (!email || email.indexOf('@') === -1) { showCPError('Please enter a valid email address.'); return; }
+            // Validate
+            if (!fname)  { showCPError('Please enter your first name.'); return; }
+            if (!lname)  { showCPError('Please enter your last name.'); return; }
+            if (!mobile || mobile.replace(/[^0-9]/g,'').length < 10) {
+                showCPError('Please enter a valid 10-digit mobile number.'); return;
+            }
+            if (!email || email.indexOf('@') === -1) {
+                showCPError('Please enter a valid email address.'); return;
+            }
             errEl.style.display = 'none';
 
+            // Loading state
+            _cpSubmitting = true;
+            var origText = btn ? btn.textContent : '';
+            if (btn) { btn.textContent = '⏳ Submitting…'; btn.disabled = true; btn.style.opacity = '0.7'; }
+
             try {
-                await apiFetch('/contact', {
+                // ✅ Correct endpoint: /api/contacts
+                await apiFetch('/contacts', {
                     method: 'POST',
                     body: { name: fname + ' ' + lname, mobile, email, service, company, message }
                 });
-            } catch (e) { showCPError(e.message); return; }
-
-            // Show success
-            document.getElementById('cpFormBody').style.display = 'none';
-            document.getElementById('cpSuccess').style.display = 'block';
+                document.getElementById('cpFormBody').style.display = 'none';
+                document.getElementById('cpSuccess').style.display  = 'block';
+            } catch (e) {
+                showCPError(e.message || 'Submission failed. Please try again.');
+            } finally {
+                _cpSubmitting = false;
+                if (btn) { btn.textContent = origText; btn.disabled = false; btn.style.opacity = ''; }
+            }
         }
 
         function showCPError(msg) {
@@ -5483,29 +5497,48 @@
             el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
-        // ── Contact Us Page (full page form, submits to the same API) ─────
+        // ── Contact Us Page (full page form) ──────────────────────────────
+        var _cpgSubmitting = false;
         async function submitContactPageForm() {
+            if (_cpgSubmitting) return;
             var name    = (document.getElementById('cpg_name').value||'').trim();
             var email   = (document.getElementById('cpg_email_input').value||'').trim();
             var mobile  = (document.getElementById('cpg_mobile').value||'').trim();
             var service = (document.getElementById('cpg_service').value||'').trim();
             var message = (document.getElementById('cpg_message').value||'').trim();
+            var btn     = document.querySelector('.cpg-submit-btn');
             var errEl   = document.getElementById('cpgError');
 
-            if (!name) { showCPGError('Please enter your name.'); return; }
-            if (!mobile || mobile.replace(/[^0-9]/g,'').length < 10) { showCPGError('Please enter a valid 10-digit mobile number.'); return; }
-            if (email && email.indexOf('@') === -1) { showCPGError('Please enter a valid email address.'); return; }
+            // Validate
+            if (!name)   { showCPGError('Please enter your name.'); return; }
+            if (!mobile || mobile.replace(/[^0-9]/g,'').length < 10) {
+                showCPGError('Please enter a valid 10-digit mobile number.'); return;
+            }
+            if (email && email.indexOf('@') === -1) {
+                showCPGError('Please enter a valid email address.'); return;
+            }
             errEl.style.display = 'none';
 
-            try {
-                await apiFetch('/contact', {
-                    method: 'POST',
-                    body: { name, mobile, email, service, company: '', message }
-                });
-            } catch (e) { showCPGError(e.message); return; }
+            // Loading state
+            _cpgSubmitting = true;
+            var origText = btn ? btn.textContent : '';
+            if (btn) { btn.textContent = '⏳ Submitting…'; btn.disabled = true; btn.style.opacity = '0.7'; }
 
-            document.getElementById('cpgFormBody').style.display = 'none';
-            document.getElementById('cpgSuccess').style.display = 'block';
+            try {
+                // ✅ Correct endpoint: /api/contacts
+                await apiFetch('/contacts', {
+                    method: 'POST',
+                    body: { name, mobile, email: email || '', service, company: '', message }
+                });
+                // Success — hide form, show success message
+                document.getElementById('cpgFormBody').style.display = 'none';
+                document.getElementById('cpgSuccess').style.display  = 'block';
+            } catch (e) {
+                showCPGError(e.message || 'Submission failed. Please try again.');
+            } finally {
+                _cpgSubmitting = false;
+                if (btn) { btn.textContent = origText; btn.disabled = false; btn.style.opacity = ''; }
+            }
         }
 
         function showCPGError(msg) {
